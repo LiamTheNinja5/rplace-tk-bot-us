@@ -20,7 +20,7 @@ This bot is made to work with an r/place alternative https://rplace.tk/
 5. install the dependencies: `npm i`
 6. execute the bot `node bot.js <commando server domain without https://>`
 
-As far as i know, only 1 bot can be used per IP address
+As far as I know, only 1 bot can be used per IP address
 
 [//]: # (# Docker alternative)
 
