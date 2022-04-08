@@ -19,7 +19,6 @@ jobs:
       - name: Login to DockerHub
         uses: docker/login-action@v1
         with:
-          registry: ghcr.io
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
@@ -28,5 +27,5 @@ jobs:
         uses: docker/build-push-action@v2
         with:
           push: true
-          tags: ghcr.io/stef1904berg/rplace-tk-bot:latest
+          tags: stef1904berg/rplace-tk-bot:latest
           platforms: linux/amd64,linux/arm64,linux/arm/v7
