@@ -2,37 +2,32 @@ import fetch from 'node-fetch';
 import getPixels from "get-pixels";
 import WebSocket from 'ws';
 
-const PREFIX = process.env.PREFIX || "simple"
+const PREFIX = process.env.PREFIX || "rplace-tk"
 const VERSION_NUMBER = 11;
 
 console.log(`PlaceNL headless client V${VERSION_NUMBER}`);
 
+
 const args = process.argv.slice(2);
 
-//if (args.length != 1 && !process.env.ACCESS_TOKEN) {
-//    console.error("Missing access token.")
-//    process.exit(1);
-//}
-if (args.length != 1 && !process.env.REDDIT_SESSION) {
-    console.error("Missing reddit_session cookie.")
-    process.exit(1);
-}
+const COMMANDO_SERVER = args[0] || 'placenl.noahvdaa.me'
 
-let redditSessionCookies = (process.env.REDDIT_SESSION || args[0]).split(';');
+console.log('Using Commando Server: ' + COMMANDO_SERVER)
 
-var hasTokens = false;
+let socket;
+let placeSocket;
 
-let accessTokenHolders = [];
-let defaultAccessToken;
+let currentOrders;
+let currentOrderList;
 
-if (redditSessionCookies.length > 4) {
-    console.warn("Meer dan 4 reddit accounts per IP addres wordt niet geadviseerd!")
-}
+let lastPlacedPixel = {x: -1, y: -1, color: -1}
 
-var socket;
-var currentOrders;
-var currentOrderList;
+const WIDTH = 2000;
+const HEIGHT = 2000;
 
+
+// eigenlijk moet er maar 1 van deze lijst zijn, maar ik heb nog geen idee hoe ik dat moet oplossen op dit moment
+const VALID_COLORS = ['#6D001A', '#BE0039', '#FF4500', '#FFA800', '#FFD635', '#FFF8B8', '#00A368', '#00CC78', '#7EED56', '#00756F', '#009EAA', '#00CCC0', '#2450A4', '#3690EA', '#51E9F4', '#493AC1', '#6A5CFF', '#94B3FF', '#811E9F', '#B44AC0', '#E4ABFF', '#DE107F', '#FF3881', '#FF99AA', '#6D482F', '#9C6926', '#FFB470', '#000000', '#515252', '#898D90', '#D4D7D9', '#FFFFFF'];
 const COLOR_MAPPINGS = {
     '#6D001A': 0,
     '#BE0039': 1,
@@ -86,36 +81,16 @@ let USER_AGENTS = [
 
 let CHOSEN_AGENT = USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
 
-let rgbaJoinH = (a1, a2, rowSize = 1000, cellSize = 4) => {
-    const rawRowSize = rowSize * cellSize;
-    const rows = a1.length / rawRowSize;
-    let result = new Uint8Array(a1.length + a2.length);
-    for (var row = 0; row < rows; row++) {
-        result.set(a1.slice(rawRowSize * row, rawRowSize * (row + 1)), rawRowSize * 2 * row);
-        result.set(a2.slice(rawRowSize * row, rawRowSize * (row + 1)), rawRowSize * (2 * row + 1));
-    }
-    return result;
-};
+let canvasLoaded = false
+let initialCanvasLoaded = false
 
-let rgbaJoinV = (a1, a2, rowSize = 2000, cellSize = 4) => {
-    let result = new Uint8Array(a1.length + a2.length);
+// Load initial canvas, dont think this is a good place to load it tho...
+let canvas
+await fetch('https://rplace.tk/place').then(a => a.arrayBuffer()).then(a => {
+    canvas = new Uint8Array(a)
+    initialCanvasLoaded = true
+})
 
-    const rawRowSize = rowSize * cellSize;
-
-    const rows1 = a1.length / rawRowSize;
-
-    for (var row = 0; row < rows1; row++) {
-        result.set(a1.slice(rawRowSize * row, rawRowSize * (row + 1)), rawRowSize * row);
-    }
-
-    const rows2 = a2.length / rawRowSize;
-
-    for (var row = 0; row < rows2; row++) {
-        result.set(a2.slice(rawRowSize * row, rawRowSize * (row + 1)), (rawRowSize * row) + a1.length);
-    }
-
-    return result;
-};
 
 let getRealWork = rgbaOrder => {
     let order = [];
@@ -127,10 +102,10 @@ let getRealWork = rgbaOrder => {
     return order;
 };
 
-let getPendingWork = (work, rgbaOrder, rgbaCanvas) => {
+let getPendingWork = (work, rgbaOrder, canvas) => {
     let pendingWork = [];
     for (const i of work) {
-        if (rgbaOrderToHex(i, rgbaOrder) !== rgbaOrderToHex(i, rgbaCanvas)) {
+        if (rgbaOrderToHex(i, rgbaOrder) !== VALID_COLORS[canvas[i]]) {
             pendingWork.push(i);
         }
     }
@@ -138,66 +113,88 @@ let getPendingWork = (work, rgbaOrder, rgbaCanvas) => {
 };
 
 (async function () {
-    refreshTokens();
-    connectSocket();
+    connectPlaceTkSocket()
+    connectSocket()
 
     startPlacement();
-
-    setInterval(() => {
-        if (socket && socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type: 'ping' }));
-    }, 5000);
-    // Refresh de tokens elke 30 minuten. Moet genoeg zijn toch.
-    setInterval(refreshTokens, 30 * 60 * 1000);
 })();
 
 function startPlacement() {
-    if (!hasTokens) {
-        // Probeer over een seconde opnieuw.
-        setTimeout(startPlacement, 10000);
-        return
-    }
 
-    // Try to stagger pixel placement
-    const interval = 300 / accessTokenHolders.length;
-    var delay = 0;
-    for (const accessTokenHolder of accessTokenHolders) {
-        setTimeout(() => attemptPlace(accessTokenHolder), delay * 1000);
-        delay += interval;
-    }
+    let delay = 0
+    setTimeout(() => attemptPlace(), delay * 1000);
 }
 
-async function refreshTokens() {
-    if (accessTokenHolders.length === 0) {
-        for (const _ of redditSessionCookies) {
-            accessTokenHolders.push({});
-        }
+function connectPlaceTkSocket() {
+    console.log('Verbonden met rplace.tk websocket...')
+
+    placeSocket = new WebSocket('wss://server.rplace.tk:1291/')
+
+    placeSocket.onopen = function () {
+        console.log('Verbonden met rplace.tk websocket!')
     }
 
-    let tokens = [];
-    for (const cookie of redditSessionCookies) {
-        const response = await fetch("https://www.reddit.com/r/place/", {
-            headers: {
-                cookie: `reddit_session=${cookie}`
+    placeSocket.onerror = function (e) {
+        console.error('rplace.tk socket error: ' + e.message)
+    }
+
+    placeSocket.onmessage = async function ({data}) {
+
+        let packet = new DataView(await data.buffer.slice(2))
+
+        let code = packet.getUint8(0)
+
+        // inladen pixel veranderingen vanuit websocket, ik heb geen idee of dit nu de bedoeling is of niet
+        // als het in het canvas word geladen zijn er meer pixels die veranderd moeten worden dat als het niet word geladen
+
+        // stupidPacket moet worden aangemaakt omdat data.buffer.slice(2) bij packet wel nodig is, maar als je 'packet' gebruikt om de code uit te lezen veranderd die om de minuut
+        let stupidPacket = new DataView(await data.buffer)
+        if (stupidPacket.getUint8(0) === 2) {
+            let i = 1, boardI = 0
+            while (i < packet.byteLength) {
+                let cell = packet.getUint8(i++)
+                let c = cell >> 6
+                if (c === 1) c = packet.getUint8(i++)
+                else if (c === 2) c = packet.getUint16(i++), i++
+                else if (c === 3) c = packet.getUint32(i++), i += 3
+                boardI += c
+                canvas[boardI++] = cell & 63
             }
-        });
-        const responseText = await response.text()
+            canvasLoaded = true
+        }
 
-        let token = responseText.split('\"accessToken\":\"')[1].split('"')[0];
-        tokens.push(token);
+        // dump incoming pixels into the canvas
+        if (code === 6) {
+            let i = 0
+            while (i < packet.byteLength - 2) {
+                let location = packet.getUint32(i += 1)
+                let color = packet.getUint8(i += 4)
+                canvas[location] = color
+
+                let x = location % WIDTH
+                let y = Math.floor(location / WIDTH)
+                if (lastPlacedPixel.x === x && lastPlacedPixel.y === y && lastPlacedPixel.color === color) {
+                    console.log(`Pixel succesvol geplaatst op: ${x}, ${y}`)
+                    lastPlacedPixel = {x: -1, y: -1, color: -1}
+                }
+            }
+        }
+
+
     }
 
-    console.log("Refreshed tokens: ", tokens)
-    tokens.forEach((token, idx) => {
-        accessTokenHolders[idx].token = token;
-    });
-    defaultAccessToken = tokens[0];
-    hasTokens = true;
+    placeSocket.onclose = function (e) {
+        console.warn(`rplace.tk server heeft de verbinding verbroken: ${e.reason}`)
+        console.error('rplace.tk, Socketfout: ', e.reason);
+        socket.close();
+        setTimeout(connectPlaceTkSocket, 1000);
+    };
 }
 
 function connectSocket() {
     console.log('Verbinden met PlaceNL server...')
 
-    socket = new WebSocket('wss://placenl.noahvdaa.me/api/ws');
+    socket = new WebSocket(`wss://${COMMANDO_SERVER}/api/ws`);
 
     socket.onerror = function (e) {
         console.error("Socket error: " + e.message)
@@ -205,8 +202,8 @@ function connectSocket() {
 
     socket.onopen = function () {
         console.log('Verbonden met PlaceNL server!')
-        socket.send(JSON.stringify({ type: 'getmap' }));
-        socket.send(JSON.stringify({ type: 'brand', brand: `nodeheadless-${PREFIX}-V${VERSION_NUMBER}` }));
+        socket.send(JSON.stringify({type: 'getmap'}));
+        socket.send(JSON.stringify({type: 'brand', brand: `nodeheadless-${PREFIX}-V${VERSION_NUMBER}`}));
     };
 
     socket.onmessage = async function (message) {
@@ -220,7 +217,7 @@ function connectSocket() {
         switch (data.type.toLowerCase()) {
             case 'map':
                 console.log(`Nieuwe map geladen (reden: ${data.reason ? data.reason : 'verbonden met server'})`)
-                currentOrders = await getMapFromUrl(`https://placenl.noahvdaa.me/maps/${data.data}`);
+                currentOrders = await getMapFromUrl(`https://${COMMANDO_SERVER}/maps/${data.data}`);
                 currentOrderList = getRealWork(currentOrders.data);
                 break;
             default:
@@ -230,43 +227,25 @@ function connectSocket() {
 
     socket.onclose = function (e) {
         console.warn(`PlaceNL server heeft de verbinding verbroken: ${e.reason}`)
-        console.error('Socketfout: ', e.reason);
+        console.error('PlaceNL, Socketfout: ', e.reason);
         socket.close();
         setTimeout(connectSocket, 1000);
     };
 }
 
 async function attemptPlace(accessTokenHolder) {
-    let retry = () => attemptPlace(accessTokenHolder);
-    if (currentOrderList === undefined) {
-        setTimeout(retry, 10000); // probeer opnieuw in 10sec.
-        return;
-    }
-
-    var map0;
-    var map1;
-    var map2;
-    var map3;
-    try {
-        map0 = await getMapFromUrl(await getCurrentImageUrl('0'));
-        map1 = await getMapFromUrl(await getCurrentImageUrl('1'));
-        map2 = await getMapFromUrl(await getCurrentImageUrl('2'));
-        map3 = await getMapFromUrl(await getCurrentImageUrl('3'));
-    } catch (e) {
-        console.warn('Fout bij ophalen map: ', e);
-        setTimeout(retry, 15000); // probeer opnieuw in 15sec.
+    let retry = () => attemptPlace();
+    if (currentOrderList === undefined || !canvasLoaded) {
+        setTimeout(retry, 5000); // probeer opnieuw in 10sec.
         return;
     }
 
     const rgbaOrder = currentOrders.data;
-    const rgbaCanvasH0 = rgbaJoinH(map0.data, map1.data);
-    const rgbaCanvasH1 = rgbaJoinH(map2.data, map3.data);
-    const rgbaCanvas = rgbaJoinV(rgbaCanvasH0, rgbaCanvasH1);
-    const work = getPendingWork(currentOrderList, rgbaOrder, rgbaCanvas);
+    const work = getPendingWork(currentOrderList, rgbaOrder, canvas);
 
     if (work.length === 0) {
-        console.log(`Alle pixels staan al op de goede plaats! Opnieuw proberen in 30 sec...`);
-        setTimeout(retry, 30000); // probeer opnieuw in 30sec.
+        console.log(`Alle pixels staan al op de goede plaats! Opnieuw proberen in 10 sec...`);
+        setTimeout(retry, 10000); // probeer opnieuw in 10sec.
         return;
     }
 
@@ -280,123 +259,25 @@ async function attemptPlace(accessTokenHolder) {
 
     console.log(`Proberen pixel te plaatsen op ${x}, ${y}... (${percentComplete}% compleet, nog ${workRemaining} over)`);
 
-    const res = await place(x, y, COLOR_MAPPINGS[hex], accessTokenHolder.token);
-    const data = await res.json();
-    try {
-        if (data.error || data.errors) {
-            const error = data.error || data.errors[0];
-            if (error.extensions && error.extensions.nextAvailablePixelTs) {
-                const nextPixel = error.extensions.nextAvailablePixelTs + 3000;
-                const nextPixelDate = new Date(nextPixel);
-                const delay = nextPixelDate.getTime() - Date.now();
-                console.log(`Pixel te snel geplaatst! Volgende pixel wordt geplaatst om ${nextPixelDate.toLocaleTimeString()}.`)
-                setTimeout(retry, delay);
-            } else {
-                const message = error.message || error.reason || 'Unknown error';
-                const guidance = message === 'user is not logged in' ? 'Heb je de "reddit_session" cookie goed gekopieerd?' : '';
-                console.error(`[!!] Kritieke fout: ${message}. ${guidance}`);
-                console.error(`[!!] Los dit op en herstart het script`);
-            }
-        } else {
-            const nextPixel = data.data.act.data[0].data.nextAvailablePixelTimestamp + 3000 + Math.floor(Math.random() * 10000); // Random tijd toevoegen tussen 0 en 10 sec om detectie te voorkomen en te spreiden na server herstart.
-            const nextPixelDate = new Date(nextPixel);
-            const delay = nextPixelDate.getTime() - Date.now(); 
-            console.log(`Pixel geplaatst op ${x}, ${y}! Volgende pixel wordt geplaatst om ${nextPixelDate.toLocaleTimeString()}.`)
-            setTimeout(retry, delay);
-        }
-    } catch (e) {
-        console.warn('Fout bij response analyseren', e);
-        setTimeout(retry, 10000);
-    }
+    place(x, y, COLOR_MAPPINGS[hex])
+    canvas[i] = COLOR_MAPPINGS[hex]
+
+    setTimeout(retry, 11000)
 }
 
-function place(x, y, color, accessToken = defaultAccessToken) {
-    socket.send(JSON.stringify({ type: 'placepixel', x, y, color }));
-    return fetch('https://gql-realtime-2.reddit.com/query', {
-        method: 'POST',
-        body: JSON.stringify({
-            'operationName': 'setPixel',
-            'variables': {
-                'input': {
-                    'actionName': 'r/replace:set_pixel',
-                    'PixelMessageData': {
-                        'coordinate': {
-                            'x': x % 1000,
-                            'y': y % 1000
-                        },
-                        'colorIndex': color,
-                        'canvasIndex': getCanvas(x, y)
-                    }
-                }
-            },
-            'query': 'mutation setPixel($input: ActInput!) {\n  act(input: $input) {\n    data {\n      ... on BasicMessage {\n        id\n        data {\n          ... on GetUserCooldownResponseMessageData {\n            nextAvailablePixelTimestamp\n            __typename\n          }\n          ... on SetPixelResponseMessageData {\n            timestamp\n            __typename\n          }\n          __typename\n        }\n        __typename\n      }\n      __typename\n    }\n    __typename\n  }\n}\n'
-        }),
-        headers: {
-            'origin': 'https://hot-potato.reddit.com',
-            'referer': 'https://hot-potato.reddit.com/',
-            'apollographql-client-name': 'mona-lisa',
-            'Authorization': `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
-            'User-Agent': CHOSEN_AGENT
-        }
-    });
-}
+function place(x, y, color) {
+    // prepare and send packet to rplace.tk
+    let placePixelPacket = new DataView(new Uint8Array(6).buffer)
+    placePixelPacket.setUint8(0, 4)
+    placePixelPacket.setUint32(1, Math.floor(x) + Math.floor(y) * WIDTH)
+    placePixelPacket.setUint8(5, color)
 
-async function getCurrentImageUrl(id = '0') {
-    return new Promise((resolve, reject) => {
-        const ws = new WebSocket('wss://gql-realtime-2.reddit.com/query', 'graphql-ws', {
-            headers: {
-                "User-Agent": CHOSEN_AGENT,
-                "Origin": "https://hot-potato.reddit.com"
-            }
-        });
+    placeSocket.send(placePixelPacket)
+    lastPlacedPixel = {x: x, y: y, color: color}
 
-        ws.onopen = () => {
-            ws.send(JSON.stringify({
-                'type': 'connection_init',
-                'payload': {
-                    'Authorization': `Bearer ${defaultAccessToken}`
-                }
-            }));
+    // send pixel job to command server
+    socket.send(JSON.stringify({type: 'placepixel', x, y, color}));
 
-            ws.send(JSON.stringify({
-                'id': '1',
-                'type': 'start',
-                'payload': {
-                    'variables': {
-                        'input': {
-                            'channel': {
-                                'teamOwner': 'AFD2022',
-                                'category': 'CANVAS',
-                                'tag': id
-                            }
-                        }
-                    },
-                    'extensions': {},
-                    'operationName': 'replace',
-                    'query': 'subscription replace($input: SubscribeInput!) {\n  subscribe(input: $input) {\n    id\n    ... on BasicMessage {\n      data {\n        __typename\n        ... on FullFrameMessageData {\n          __typename\n          name\n          timestamp\n        }\n      }\n      __typename\n    }\n    __typename\n  }\n}'
-                }
-            }));
-        };
-
-        ws.onmessage = (message) => {
-            const { data } = message;
-            const parsed = JSON.parse(data);
-
-            if (parsed.type === 'connection_error') {
-                console.error(`[!!] Kon /r/place map niet laden: ${parsed.payload.message}. Is de access token niet meer geldig?`);
-            }
-
-            // TODO: ew
-            if (!parsed.payload || !parsed.payload.data || !parsed.payload.data.subscribe || !parsed.payload.data.subscribe.data) return;
-
-            ws.close();
-            resolve(parsed.payload.data.subscribe.data.name + `?noCache=${Date.now() * Math.random()}`);
-        }
-
-
-        ws.onerror = reject;
-    });
 }
 
 function getMapFromUrl(url) {
@@ -410,14 +291,6 @@ function getMapFromUrl(url) {
             resolve(pixels)
         })
     });
-}
-
-function getCanvas(x, y) {
-    if (x <= 999) {
-        return y <= 999 ? 0 : 2;
-    } else {
-        return y <= 999 ? 1 : 3;
-    }
 }
 
 function rgbToHex(r, g, b) {
