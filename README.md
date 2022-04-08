@@ -1,5 +1,3 @@
-**NEDERLANDSE VERSIE ONDERAAN DE PAGINA**
-
 # PlaceNL Bot (English)
 
 The bot for PlaceNL and their allies! This bot connects with the [command server](https://github.com/PlaceNL/Commando) and gets it's orders from there. You can see the orderhistory [here](https://placenl.noahvdaa.me/).
