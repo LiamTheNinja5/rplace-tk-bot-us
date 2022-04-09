@@ -20,18 +20,17 @@ This bot is made to work with an r/place alternative https://rplace.tk/
 
 As far as I know, only 1 bot can be used per IP address
 
-[//]: # (# Docker alternative)
+# Docker alternative
 
-[//]: # ()
-[//]: # (This option is mostly useful for people who are already using docker.)
 
-[//]: # ()
-[//]: # (It has been confirmed to run on x64&#40;average desktop computer&#41; and armv7&#40;raspberry pi&#41;, but it should also be able to run on arm64&#40;new apple computers&#41;.)
+This option is mostly useful for people who are already using docker.
 
-[//]: # ()
-[//]: # (1. Install [Docker]&#40;https://docs.docker.com/get-docker/&#41;)
 
-[//]: # (2. Run this command: `docker run --pull=always --restart unless-stopped -it ghcr.io/placenl/placenl-bot <commando server domain without https://>`)
+It has been confirmed to run on x64(average desktop computer) and armv7(raspberry pi), but it should also be able to run on arm64(new apple computers).
 
-[//]: # ()
-[//]: # (-----)
+
+1. Install [Docker](https://docs.docker.com/get-docker/)
+
+2. Run this command: `docker run --pull=always --restart unless-stopped -d ghcr.io/stef1904berg/rplace-tk-bot <commando server domain without https://>`
+
+-----
