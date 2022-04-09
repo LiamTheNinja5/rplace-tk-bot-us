@@ -128,10 +128,7 @@ function connectPlaceTkSocket() {
 
         // inladen pixel veranderingen vanuit websocket, ik heb geen idee of dit nu de bedoeling is of niet
         // als het in het canvas word geladen zijn er meer pixels die veranderd moeten worden dat als het niet word geladen
-
-        // stupidPacket moet worden aangemaakt omdat data.buffer.slice(2) bij packet wel nodig is, maar als je 'packet' gebruikt om de code uit te lezen veranderd die om de minuut
-        let stupidPacket = new DataView(await data.buffer)
-        if (stupidPacket.getUint8(0) === 2) {
+        if (packet.byteLength > 1000) {
             let i = 1, boardI = 0
             while (i < packet.byteLength) {
                 let cell = packet.getUint8(i++)
@@ -242,7 +239,6 @@ async function attemptPlace(accessTokenHolder) {
     console.log(`Proberen pixel te plaatsen op ${x}, ${y}... (${percentComplete}% compleet, nog ${workRemaining} over)`);
 
     place(x, y, COLOR_MAPPINGS[hex])
-    canvas[i] = COLOR_MAPPINGS[hex]
 
     setTimeout(retry, 11000)
 }
