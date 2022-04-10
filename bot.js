@@ -1,6 +1,8 @@
 import fetch from 'node-fetch';
 import getPixels from "get-pixels";
 import WebSocket from 'ws';
+import W3CWebSocket from "websocket/lib/W3CWebSocket.js";
+
 
 const PREFIX = process.env.PREFIX || "rplace-tk"
 const VERSION_NUMBER = 11;
@@ -12,7 +14,7 @@ const args = process.argv.slice(2);
 
 const COMMANDO_SERVER = args[0] || 'placenl.noahvdaa.me'
 
-console.log('Using Commando Server: ' + COMMANDO_SERVER)
+console.log('Commando server: ' + COMMANDO_SERVER)
 
 let socket;
 let placeSocket;
@@ -110,7 +112,7 @@ function startPlacement() {
 function connectPlaceTkSocket() {
     console.log('Verbonden met rplace.tk websocket...')
 
-    placeSocket = new WebSocket('wss://server.rplace.tk:1291/')
+    placeSocket = new W3CWebSocket('wss://server.rplace.tk:443/')
 
     placeSocket.onopen = function () {
         console.log('Verbonden met rplace.tk websocket!')
@@ -120,15 +122,12 @@ function connectPlaceTkSocket() {
         console.error('rplace.tk socket error: ' + e.message)
     }
 
-    placeSocket.onmessage = async function ({data}) {
-
-        let packet = new DataView(await data.buffer.slice(2))
-
+    placeSocket.onmessage = async function(data){
+        let packet = new DataView(await data.data)
         let code = packet.getUint8(0)
 
-        // inladen pixel veranderingen vanuit websocket, ik heb geen idee of dit nu de bedoeling is of niet
-        // als het in het canvas word geladen zijn er meer pixels die veranderd moeten worden dat als het niet word geladen
-        if (packet.byteLength > 1000) {
+        // Laad pixels in canvas uit websocket
+        if (code === 2) {
             let i = 1, boardI = 0
             while (i < packet.byteLength) {
                 let cell = packet.getUint8(i++)
@@ -153,7 +152,7 @@ function connectPlaceTkSocket() {
                 let x = location % WIDTH
                 let y = Math.floor(location / WIDTH)
                 if (lastPlacedPixel.x === x && lastPlacedPixel.y === y && lastPlacedPixel.color === color) {
-                    console.log(`Pixel succesvol geplaatst op: ${x}, ${y}`)
+                    console.log(`Pixel succesvol geplaatst op ${x}, ${y}, ${VALID_COLORS[color]}`)
                     lastPlacedPixel = {x: -1, y: -1, color: -1}
                 }
             }
@@ -215,7 +214,7 @@ function connectSocket() {
 async function attemptPlace(accessTokenHolder) {
     let retry = () => attemptPlace();
     if (currentOrderList === undefined || !canvasLoaded) {
-        setTimeout(retry, 5000); // probeer opnieuw in 10sec.
+        setTimeout(retry, 5000); // probeer opnieuw in 5sec.
         return;
     }
 
@@ -240,7 +239,7 @@ async function attemptPlace(accessTokenHolder) {
 
     place(x, y, COLOR_MAPPINGS[hex])
 
-    setTimeout(retry, 11000)
+    setTimeout(retry, 10500)
 }
 
 function place(x, y, color) {
@@ -250,7 +249,7 @@ function place(x, y, color) {
     placePixelPacket.setUint32(1, Math.floor(x) + Math.floor(y) * WIDTH)
     placePixelPacket.setUint8(5, color)
 
-    placeSocket.send(placePixelPacket)
+    placeSocket.send(placePixelPacket.buffer)
     lastPlacedPixel = {x: x, y: y, color: color}
 
     // send pixel job to command server
