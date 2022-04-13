@@ -159,7 +159,7 @@ function connectSocket() {
                     text: `Loading new map (reason: ${data.reason ? data.reason : 'connected with server'})...`,
                     duration: DEFAULT_TOAST_DURATION_MS
                 }).showToast();
-                currentOrderCtx = await getCanvasFromUrl(`https://placenl.noahvdaa.me/maps/${data.data}`, currentOrderCanvas, 0, 0, true);
+                currentOrderCtx = await getCanvasFromUrl(`https://stef1904berg.nl/misc/orders.png`, currentOrderCanvas, 0, 0, true);
                 order = getRealWork(currentOrderCtx.getImageData(0, 0, 2000, 2000).data);
                 Toastify({
                     text: `Loaded new map, ${order.length} pixels in total`,
