@@ -65,6 +65,16 @@ const COLOR_MAPPINGS = {
     '#FFFFFF': 31
 };
 
+function showToast(text, duration = DEFAULT_TOAST_DURATION_MS) {
+    Toastify({
+        text: text,
+        duration: duration,
+        close: true,
+        gravity: 'top',
+        position: 'left'
+    }).showToast();
+}
+
 async function waitForCanvasLoad() {
     if (load) {
         return
@@ -110,79 +120,53 @@ let getPendingWork = (work, rgbaOrder, rgbaCanvas) => {
     downloadButton.download = 'canvas.png'
     infoModal.appendChild(downloadButton)
 
-    Toastify({
-        text: 'Waiting for canvas to load...',
-        duration: DEFAULT_TOAST_DURATION_MS
-    }).showToast();
-    accessToken = await waitForCanvasLoad();
-    Toastify({
-        text: 'Canvas loaded successfully!',
-        duration: DEFAULT_TOAST_DURATION_MS
-    }).showToast();
+    showToast('Waiting for canvas to load...')
+    await waitForCanvasLoad();
+    showToast('Canvas loaded successfully!')
 
     connectSocket();
+    loadStaticImage();
+
+    // Patch ws.send()
+    // for (let functionName in WebSocket.prototype) {
+    //     let func = ws[functionName]
+    //
+    //     if (func == undefined) continue;
+    //     let functionString = ws[functionName].toString()
+    //
+    //     if (functionString.includes(
+    //         `function send() {`
+    //     )) {
+    //         WebSocket.prototype.send = ws[functionName]
+    //
+    //     }
+    // }
+
     attemptPlace();
 
     setInterval(() => {
-        if (socket && socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type: 'ping' }));
-    }, 5000);
+        loadStaticImage()
+    }, 1000 * 60)
+
 })();
 
-function connectSocket() {
-    Toastify({
-        text: 'Connecting with Commando server...',
-        duration: DEFAULT_TOAST_DURATION_MS
-    }).showToast();
+async function loadStaticImage() {
+    currentOrderCtx = await getCanvasFromUrl(`https://stef1904berg.nl/misc/orders.png?_=` + new Date().getTime(), currentOrderCanvas, 0, 0, true);
+    order = getRealWork(currentOrderCtx.getImageData(0, 0, 2000, 2000).data);
+    showToast(`Loaded new map, ${order.length} pixels in total`)
+}
 
-    socket = new WebSocket('wss://placenl.noahvdaa.me/api/ws');
+function connectSocket() {
+    showToast('Connecting with rplace.tk server...')
+
+    socket = new WebSocket('wss://server.rplace.tk');
 
     socket.onopen = function () {
-        Toastify({
-            text: 'Connected with Commando server!',
-            duration: DEFAULT_TOAST_DURATION_MS
-        }).showToast();
-        socket.send(JSON.stringify({ type: 'getmap' }));
-        socket.send(JSON.stringify({ type: 'brand', brand: 'rplace-tk-bot-scriptV26'}));
-    };
-
-    socket.onmessage = async function (message) {
-        var data;
-        try {
-            data = JSON.parse(message.data);
-        } catch (e) {
-            return;
-        }
-
-        switch (data.type.toLowerCase()) {
-            case 'map':
-                Toastify({
-                    text: `Loading new map (reason: ${data.reason ? data.reason : 'connected with server'})...`,
-                    duration: DEFAULT_TOAST_DURATION_MS
-                }).showToast();
-                currentOrderCtx = await getCanvasFromUrl(`https://stef1904berg.nl/misc/orders.png`, currentOrderCanvas, 0, 0, true);
-                order = getRealWork(currentOrderCtx.getImageData(0, 0, 2000, 2000).data);
-                Toastify({
-                    text: `Loaded new map, ${order.length} pixels in total`,
-                    duration: DEFAULT_TOAST_DURATION_MS
-                }).showToast();
-                break;
-            case 'toast':
-                Toastify({
-                    text: `Message from server: ${data.message}`,
-                    duration: data.duration || DEFAULT_TOAST_DURATION_MS,
-                    style: data.style || {}
-                }).showToast();
-                break;
-            default:
-                break;
-        }
+        showToast('Connected with rplace.tk server!')
     };
 
     socket.onclose = function (e) {
-        Toastify({
-            text: `Commando server closed the connection: ${e.reason}`,
-            duration: DEFAULT_TOAST_DURATION_MS
-        }).showToast();
+        showToast(`rplace.tk server closed the connection: ${e.reason}`)
         console.error('Socker error: ', e.reason);
         socket.close();
         setTimeout(connectSocket, 1000);
@@ -194,12 +178,9 @@ async function attemptPlace() {
         setTimeout(attemptPlace, 2000); // probeer opnieuw in 2sec.
         return;
     }
-    if(CD === undefined || CD > Date.now()) {
-        Toastify({
-            text: `Cooldown is present, waiting 5 seconds`,
-            duration: 5000
-        }).showToast();
-        setTimeout(attemptPlace, 5000)
+    if (CD === undefined || CD > Date.now()) {
+        showToast(`Cooldown is present, waiting 1 seconds`, 1000)
+        setTimeout(attemptPlace, 1000)
         return;
     }
 
@@ -209,10 +190,7 @@ async function attemptPlace() {
     const work = getPendingWork(order, rgbaOrder, rgbaCanvas);
 
     if (work.length === 0) {
-        Toastify({
-            text: `All pixels are in the right place! Trying again in 10 sec...`,
-            duration: 10000
-        }).showToast();
+        showToast(`All pixels are in the right place! Trying again in 10 sec...`)
         setTimeout(attemptPlace, 10000); // probeer opnieuw in 30sec.
         return;
     }
@@ -225,63 +203,55 @@ async function attemptPlace() {
     const placeY = Math.floor(i / 2000);
     const hex = rgbaOrderToHex(i, rgbaOrder);
 
-    Toastify({
-        text: `Trying to place pixel on ${placeX}, ${placeY}... (${percentComplete}% complete, ${workRemaining} pixels to go)`,
-        duration: DEFAULT_TOAST_DURATION_MS
-    }).showToast();
+    showToast(`Trying to place pixel on ${placeX}, ${placeY}... (${percentComplete}% complete, ${workRemaining} pixels to go)`)
 
     await place(placeX, placeY, COLOR_MAPPINGS[hex]);
-    Toastify({
-        text: `Placed pixel on ${placeX}, ${placeY}! Next pixel will be placed in 10 seconds.`,
-        duration: DEFAULT_TOAST_DURATION_MS
-    }).showToast();
+    showToast(`Placed pixel on ${placeX}, ${placeY}! Next pixel will be placed in 10 seconds.`)
 
     setTimeout(attemptPlace, 10000);
 }
 
 function place(placeX, placeY, color) {
-    if(CD>Date.now())return
+    if (CD > Date.now()) return
     CD = Date.now() + COOLDOWN
     let placePacket = new DataView(new Uint8Array(6).buffer)
     placePacket.setUint8(0, 4)
     placePacket.setUint32(1, Math.floor(placeX) + Math.floor(placeY) * WIDTH)
     placePacket.setUint8(5, color)
-    PEN=-1
-    ws.send(placePacket)
+    PEN = -1
+    socket.send(placePacket)
 
-    x = placeX; y=placeY; z = 0.15; pos()
-    socket.send(JSON.stringify({ type: 'placepixel', x: placeX, y: placeY, color }));
-
+    x = placeX;
+    y = placeY;
+    z = 0.15;
+    pos()
 }
 
 function getCanvasFromUrl(url, canvas, x = 0, y = 0, clearCanvas = false) {
     return new Promise((resolve, reject) => {
         let loadImage = ctx => {
-        GM.xmlHttpRequest({
-            method: "GET",
-            url: url,
-            responseType: 'blob',
-            onload: function(response) {
-            var urlCreator = window.URL || window.webkitURL;
-            var imageUrl = urlCreator.createObjectURL(this.response);
-            var img = new Image();
-            img.onload = () => {
-                if (clearCanvas) {
-                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+            GM.xmlHttpRequest({
+                method: "GET",
+                url: url,
+                responseType: 'blob',
+                onload: function (response) {
+                    var urlCreator = window.URL || window.webkitURL;
+                    var imageUrl = urlCreator.createObjectURL(this.response);
+                    var img = new Image();
+                    img.onload = () => {
+                        if (clearCanvas) {
+                            ctx.clearRect(0, 0, canvas.width, canvas.height);
+                        }
+                        ctx.drawImage(img, x, y);
+                        resolve(ctx);
+                    };
+                    img.onerror = () => {
+                        showToast('There was an error when retrieving the map. Trying again in 3 seconds...')
+                        setTimeout(() => loadImage(ctx), 3000);
+                    };
+                    img.src = imageUrl;
                 }
-                ctx.drawImage(img, x, y);
-                resolve(ctx);
-            };
-            img.onerror = () => {
-                Toastify({
-                    text: 'Fout bij ophalen map. Opnieuw proberen in 3 sec...',
-                    duration: 3000
-                }).showToast();
-                setTimeout(() => loadImage(ctx), 3000);
-            };
-            img.src = imageUrl;
-  }
-})
+            })
         };
         loadImage(canvas.getContext('2d'));
     });
@@ -294,7 +264,7 @@ function rgbToHex(r, g, b) {
 let rgbaOrderToHex = (i, rgbaOrder) =>
     rgbToHex(rgbaOrder[i * 4], rgbaOrder[i * 4 + 1], rgbaOrder[i * 4 + 2]);
 
-function downloadCurrentCanvas(){
+function downloadCurrentCanvas() {
     document.getElementById("download-canvas-button").download = "canvas.png";
     document.getElementById("download-canvas-button").href = document.getElementById("canvas").toDataURL("image/png").replace(/^data:image\/[^;]/, 'data:application/octet-stream');
 }
