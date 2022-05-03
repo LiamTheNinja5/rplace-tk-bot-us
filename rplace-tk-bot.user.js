@@ -7,7 +7,6 @@
 // @match        https://rplace.tk/*
 // @connect      reddit.com
 // @connect      stef1904berg.nl
-// @connect      placenl.noahvdaa.me
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=rplace.tk
 // @require	     https://cdn.jsdelivr.net/npm/toastify-js
 // @resource     TOASTIFY_CSS https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css
@@ -169,7 +168,7 @@ function connectSocket() {
         showToast(`rplace.tk server closed the connection: ${e.reason}`)
         console.error('Socker error: ', e.reason);
         socket.close();
-        setTimeout(connectSocket, 1000);
+        setTimeout(connectSocket, 10000);
     };
 }
 
