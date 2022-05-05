@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         rplace.tk Bot
 // @namespace    https://github.com/stef1904berg/rplace-tk-bot
-// @version      26
+// @version      27
 // @description  A bot for rplace.tk!
 // @author       stef1904berg
 // @match        https://rplace.tk/*
@@ -194,7 +194,7 @@ async function attemptPlace() {
     const work = getPendingWork(order, rgbaOrder, rgbaCanvas);
 
     if (work.length === 0) {
-        showToast(`All pixels are in the right place! Trying again in 10 sec...`)
+        showToast(`All pixels are in the right place! Trying again in ${userCooldown / 1000} sec...`)
         setTimeout(attemptPlace, userCooldown); // probeer opnieuw in 30sec.
         return;
     }
@@ -210,7 +210,7 @@ async function attemptPlace() {
     showToast(`Trying to place pixel on ${placeX}, ${placeY}... (${percentComplete}% complete, ${workRemaining} pixels to go)`)
 
     await place(placeX, placeY, COLOR_MAPPINGS[hex]);
-    showToast(`Placed pixel on ${placeX}, ${placeY}! Next pixel will be placed in 10 seconds.`)
+    showToast(`Placed pixel on ${placeX}, ${placeY}! Next pixel will be placed in ${userCooldown / 1000} seconds.`)
 
     setTimeout(attemptPlace, userCooldown);
 }
