@@ -23,6 +23,11 @@ var accessToken;
 var currentOrderCanvas = document.createElement('canvas');
 var currentOrderCtx = currentOrderCanvas.getContext('2d');
 var currentPlaceCanvas = document.createElement('canvas');
+let userCooldown = 10000
+
+if (localStorage.vip !== undefined) {
+    userCooldown = 5000
+}
 
 let infoModal = document.getElementById('modal')
 
@@ -190,7 +195,7 @@ async function attemptPlace() {
 
     if (work.length === 0) {
         showToast(`All pixels are in the right place! Trying again in 10 sec...`)
-        setTimeout(attemptPlace, 10000); // probeer opnieuw in 30sec.
+        setTimeout(attemptPlace, userCooldown); // probeer opnieuw in 30sec.
         return;
     }
 
@@ -207,12 +212,12 @@ async function attemptPlace() {
     await place(placeX, placeY, COLOR_MAPPINGS[hex]);
     showToast(`Placed pixel on ${placeX}, ${placeY}! Next pixel will be placed in 10 seconds.`)
 
-    setTimeout(attemptPlace, 10000);
+    setTimeout(attemptPlace, userCooldown);
 }
 
 function place(placeX, placeY, color) {
     if (CD > Date.now()) return
-    CD = Date.now() + COOLDOWN
+    CD = Date.now() + userCooldown
     let placePacket = new DataView(new Uint8Array(6).buffer)
     placePacket.setUint8(0, 4)
     placePacket.setUint32(1, Math.floor(placeX) + Math.floor(placeY) * WIDTH)
