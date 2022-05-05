@@ -158,7 +158,7 @@ async function loadStaticImage() {
 function connectSocket() {
     showToast('Connecting with rplace.tk server...')
 
-    socket = new WebSocket('wss://server.rplace.tk');
+    socket = new WebSocket((localStorage.server || 'wss://server.rplace.tk:443') + (localStorage.vip ? "/" + localStorage.vip : ""));
 
     socket.onopen = function () {
         showToast('Connected with rplace.tk server!')
