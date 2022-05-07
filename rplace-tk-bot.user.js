@@ -15,11 +15,11 @@
 // @grant        GM_getResourceText
 // @grant        GM_addStyle
 // @grant        GM.xmlHttpRequest
+// @run-at       document-body
 // ==/UserScript==
 
 var socket;
 var order = undefined;
-var accessToken;
 var currentOrderCanvas = document.createElement('canvas');
 var currentOrderCtx = currentOrderCanvas.getContext('2d');
 var currentPlaceCanvas = document.createElement('canvas');
@@ -28,8 +28,6 @@ let userCooldown = 10000
 if (localStorage.vip !== undefined) {
     userCooldown = 5000
 }
-
-let infoModal = document.getElementById('modal')
 
 // Global constants
 const DEFAULT_TOAST_DURATION_MS = 10000;
@@ -69,14 +67,18 @@ const COLOR_MAPPINGS = {
     '#FFFFFF': 31
 };
 
-function showToast(text, duration = DEFAULT_TOAST_DURATION_MS) {
-    Toastify({
+function showToast(text, duration = DEFAULT_TOAST_DURATION_MS, onToastClick = function () {
+}) {
+    let toast = Toastify({
         text: text,
         duration: duration,
         close: true,
         gravity: 'top',
-        position: 'left'
-    }).showToast();
+        position: 'left',
+        onClick: onToastClick
+    })
+
+    toast.showToast();
 }
 
 async function waitForCanvasLoad() {
@@ -106,51 +108,45 @@ let getPendingWork = (work, rgbaOrder, rgbaCanvas) => {
     return pendingWork;
 };
 
-(async function () {
+(function () {
     GM_addStyle(GM_getResourceText('TOASTIFY_CSS'));
-    currentOrderCanvas.width = 2000;
-    currentOrderCanvas.height = 2000;
-    currentOrderCanvas.style.display = 'none';
-    currentOrderCanvas = document.body.appendChild(currentOrderCanvas);
-    currentPlaceCanvas.width = 2000;
-    currentPlaceCanvas.height = 2000;
-    currentPlaceCanvas.style.display = 'none';
-    currentPlaceCanvas = document.body.appendChild(currentPlaceCanvas);
 
-    let downloadButton = document.createElement('a')
-    downloadButton.innerText = "Download canvas!"
-    downloadButton.onclick = downloadCurrentCanvas
-    downloadButton.id = 'download-canvas-button'
-    downloadButton.download = 'canvas.png'
-    infoModal.appendChild(downloadButton)
-
-    showToast('Waiting for canvas to load...')
-    await waitForCanvasLoad();
-    showToast('Canvas loaded successfully!')
 
     connectSocket();
-    loadStaticImage();
 
-    // Patch ws.send()
-    // for (let functionName in WebSocket.prototype) {
-    //     let func = ws[functionName]
-    //
-    //     if (func == undefined) continue;
-    //     let functionString = ws[functionName].toString()
-    //
-    //     if (functionString.includes(
-    //         `function send() {`
-    //     )) {
-    //         WebSocket.prototype.send = ws[functionName]
-    //
-    //     }
-    // }
 
-    attemptPlace();
+    window.onload = async function () {
+        currentOrderCanvas.width = 2000;
+        currentOrderCanvas.height = 2000;
+        currentOrderCanvas.style.display = 'none';
+        currentOrderCanvas = document.body.appendChild(currentOrderCanvas);
+        currentPlaceCanvas.width = 2000;
+        currentPlaceCanvas.height = 2000;
+        currentPlaceCanvas.style.display = 'none';
+        currentPlaceCanvas = document.body.appendChild(currentPlaceCanvas);
 
-    setInterval(() => {
-        loadStaticImage()
-    }, 1000 * 60)
+        let infoModal = document.getElementById('modal')
+        let downloadButton = document.createElement('a')
+        downloadButton.innerText = "Download canvas!"
+        downloadButton.onclick = downloadCurrentCanvas
+        downloadButton.id = 'download-canvas-button'
+        downloadButton.download = 'canvas.png'
+        infoModal.appendChild(downloadButton)
+
+        showToast('Waiting for canvas to load...')
+        await waitForCanvasLoad();
+        showToast('Canvas loaded successfully!')
+
+        await loadStaticImage();
+
+        attemptPlace();
+
+        setInterval(() => {
+            loadStaticImage()
+        }, 1000 * 60)
+
+    }
+
 
 })();
 
@@ -161,9 +157,24 @@ async function loadStaticImage() {
 }
 
 function connectSocket() {
+
     showToast('Connecting with rplace.tk server...')
 
     socket = new WebSocket((localStorage.server || 'wss://server.rplace.tk:443') + (localStorage.vip ? "/" + localStorage.vip : ""));
+    // Patch ws.send()
+    for (let functionName in WebSocket.prototype) {
+        let func = socket[functionName]
+
+        if (func == undefined) continue;
+        let functionString = socket[functionName].toString()
+
+        if (functionString.includes(
+            `function send() {`
+        )) {
+            WebSocket.prototype.send = socket[functionName]
+
+        }
+    }
 
     socket.onopen = function () {
         showToast('Connected with rplace.tk server!')
@@ -173,8 +184,10 @@ function connectSocket() {
         showToast(`rplace.tk server closed the connection: ${e.reason}`)
         console.error('Socker error: ', e.reason);
         socket.close();
-        setTimeout(connectSocket, 10000);
+        setTimeout(connectSocket, 5000)
     };
+
+
 }
 
 async function attemptPlace() {
@@ -210,7 +223,12 @@ async function attemptPlace() {
     showToast(`Trying to place pixel on ${placeX}, ${placeY}... (${percentComplete}% complete, ${workRemaining} pixels to go)`)
 
     await place(placeX, placeY, COLOR_MAPPINGS[hex]);
-    showToast(`Placed pixel on ${placeX}, ${placeY}! Next pixel will be placed in ${userCooldown / 1000} seconds.`)
+    showToast(`Placed pixel on ${placeX}, ${placeY}! Next pixel will be placed in ${userCooldown / 1000} seconds.`, DEFAULT_TOAST_DURATION_MS, _ => {
+        x = placeX;
+        y = placeY;
+        z = 0.25;
+        pos()
+    })
 
     setTimeout(attemptPlace, userCooldown);
 }
@@ -224,11 +242,6 @@ function place(placeX, placeY, color) {
     placePacket.setUint8(5, color)
     PEN = -1
     socket.send(placePacket)
-
-    x = placeX;
-    y = placeY;
-    z = 0.15;
-    pos()
 }
 
 function getCanvasFromUrl(url, canvas, x = 0, y = 0, clearCanvas = false) {
