@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         rplace.tk Bot
 // @namespace    https://github.com/stef1904berg/rplace-tk-bot
-// @version      28
+// @version      29
 // @description  A bot for rplace.tk!
 // @author       stef1904berg
 // @match        https://rplace.tk/*
@@ -111,9 +111,7 @@ let getPendingWork = (work, rgbaOrder, rgbaCanvas) => {
 (function () {
     GM_addStyle(GM_getResourceText('TOASTIFY_CSS'));
 
-
     connectSocket();
-
 
     window.onload = async function () {
         currentOrderCanvas.width = 2000;
@@ -144,10 +142,7 @@ let getPendingWork = (work, rgbaOrder, rgbaCanvas) => {
         setInterval(() => {
             loadStaticImage()
         }, 1000 * 60)
-
     }
-
-
 })();
 
 async function loadStaticImage() {
@@ -172,7 +167,6 @@ function connectSocket() {
             `function send() {`
         )) {
             WebSocket.prototype.send = socket[functionName]
-
         }
     }
 
@@ -186,8 +180,6 @@ function connectSocket() {
         socket.close();
         setTimeout(connectSocket, 5000)
     };
-
-
 }
 
 async function attemptPlace() {
@@ -200,7 +192,6 @@ async function attemptPlace() {
         setTimeout(attemptPlace, 1000)
         return;
     }
-
 
     const rgbaOrder = currentOrderCtx.getImageData(0, 0, 2000, 2000).data;
     const rgbaCanvas = c.getImageData(0, 0, 2000, 2000).data;
