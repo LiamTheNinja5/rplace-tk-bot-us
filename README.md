@@ -6,9 +6,9 @@ This bot is made to work with an r/place alternative https://rplace.tk/
 ## User script bot
 
 ### Installation instructions
+You can use something different than Tampermonkey but it will probably not work!
 
-before you start, make sure your cooldown has run out!
-THIS HAS NOT BEEN TESTED OUTSIDE OF FIREFOX AND TAMPERMONKEY. USING SOMETING OTHER THAN TAMPERMONKEY AND FIREFOX MAY RESULT IN ERRORS.
+before you start, make sure your cooldown has run out! <br>
 
 1. Install the [Tampermonkey](https://www.tampermonkey.net/) browserextention.
 2. Click on this link: [https://github.com/stef1904berg/rplace-tk-bot/raw/master/rplace-tk-bot.user.js](https://github.com/stef1904berg/rplace-tk-bot/raw/master/rplace-tk-bot.user.js). If everything went well you'll see Tampermonkey ask you to add it. Click **Install**.
