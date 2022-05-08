@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         rplace.tk Bot
 // @namespace    https://github.com/stef1904berg/rplace-tk-bot
-// @version      30
+// @version      31
 // @description  A bot for rplace.tk!
 // @author       stef1904berg
 // @match        https://rplace.tk/*
@@ -183,12 +183,18 @@ function connectSocket() {
 }
 
 async function attemptPlace() {
+    if (!socket.readyState) {
+        showToast('Waiting for socket to connect...', 5000)
+        setTimeout(attemptPlace, 5000)
+        return;
+    }
+
     if (order === undefined) {
         setTimeout(attemptPlace, 2000); // probeer opnieuw in 2sec.
         return;
     }
-    if (CD === undefined || CD > Date.now()) {
-        showToast(`Cooldown is present, waiting 1 seconds`, 1000)
+    if (CD > Date.now()) {
+        showToast(`Cooldown is present, waiting 1 second`, 1000)
         setTimeout(attemptPlace, 1000)
         return;
     }
