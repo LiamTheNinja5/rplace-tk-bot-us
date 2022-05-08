@@ -1,12 +1,11 @@
 // ==UserScript==
 // @name         rplace.tk Bot
 // @namespace    https://github.com/stef1904berg/rplace-tk-bot
-// @version      29
+// @version      30
 // @description  A bot for rplace.tk!
 // @author       stef1904berg
 // @match        https://rplace.tk/*
-// @connect      reddit.com
-// @connect      stef1904berg.nl
+// @connect      *
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=rplace.tk
 // @require	     https://cdn.jsdelivr.net/npm/toastify-js
 // @resource     TOASTIFY_CSS https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css
@@ -31,6 +30,7 @@ if (localStorage.vip !== undefined) {
 
 // Global constants
 const DEFAULT_TOAST_DURATION_MS = 10000;
+const TEMPLATE_URL = "https://stef1904berg.nl/misc/orders.png"
 
 const COLOR_MAPPINGS = {
     '#6D001A': 0,
@@ -146,7 +146,7 @@ let getPendingWork = (work, rgbaOrder, rgbaCanvas) => {
 })();
 
 async function loadStaticImage() {
-    currentOrderCtx = await getCanvasFromUrl(`https://stef1904berg.nl/misc/orders.png?_=` + new Date().getTime(), currentOrderCanvas, 0, 0, true);
+    currentOrderCtx = await getCanvasFromUrl(`${TEMPLATE_URL}?_=` + new Date().getTime(), currentOrderCanvas, 0, 0, true);
     order = getRealWork(currentOrderCtx.getImageData(0, 0, 2000, 2000).data);
     showToast(`Loaded new map, ${order.length} pixels in total`)
 }
