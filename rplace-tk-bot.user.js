@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         rplace.tk Bot
 // @namespace    https://github.com/stef1904berg/rplace-tk-bot
-// @version      34
+// @version      35
 // @description  A bot for rplace.tk!
 // @author       stef1904berg
 // @match        https://rplace.tk/*
@@ -25,7 +25,8 @@ var currentPlaceCanvas = document.createElement('canvas');
 
 // Global constants
 const DEFAULT_TOAST_DURATION_MS = 10000;
-const TEMPLATE_URL = "https://stef1904berg.nl/misc/orders.png"
+let TEMPLATE_URL = localStorage.getItem('template-url') !== null ? localStorage.getItem('template-url') : "https://stef1904berg.nl/misc/orders.png"
+
 
 const COLOR_MAPPINGS = {
     '#6D001A': 0,
@@ -124,6 +125,30 @@ let getPendingWork = (work, rgbaOrder, rgbaCanvas) => {
         downloadButton.download = 'canvas.png'
         infoModal.appendChild(downloadButton)
 
+        let changeTemplateInput = document.createElement('input')
+        let changeTemplateButton = document.createElement('button')
+
+        changeTemplateInput.value = TEMPLATE_URL
+        changeTemplateInput.type = 'text'
+        changeTemplateInput.style.width = 'auto'
+        changeTemplateInput.addEventListener('keydown', async function(e) {
+            if (e.key === "Enter") {
+                TEMPLATE_URL = changeTemplateInput.value
+                localStorage.setItem('template-url', TEMPLATE_URL)
+                await loadStaticImage()
+            }
+        })
+
+        changeTemplateButton.innerText = "Update"
+        changeTemplateButton.addEventListener('click', async function () {
+            TEMPLATE_URL = changeTemplateInput.value
+            localStorage.setItem('template-url', TEMPLATE_URL)
+            await loadStaticImage()
+        })
+
+        infoModal.appendChild(changeTemplateInput)
+        infoModal.appendChild(changeTemplateButton)
+
         muted = true
 
         showToast('Waiting for canvas to load...')
@@ -132,7 +157,7 @@ let getPendingWork = (work, rgbaOrder, rgbaCanvas) => {
 
         await loadStaticImage();
 
-        COOLDOWN = (localStorage.vip ? (localStorage.vip[0] == '!' ? 0 : COOLDOWN/2) : COOLDOWN)
+        COOLDOWN = (localStorage.vip ? (localStorage.vip[0] == '!' ? 0 : COOLDOWN / 2) : COOLDOWN)
 
         attemptPlace();
 
@@ -145,7 +170,7 @@ let getPendingWork = (work, rgbaOrder, rgbaCanvas) => {
 async function loadStaticImage() {
     currentOrderCtx = await getCanvasFromUrl(`${TEMPLATE_URL}?_=` + new Date().getTime(), currentOrderCanvas, 0, 0, true);
     order = getRealWork(currentOrderCtx.getImageData(0, 0, 2000, 2000).data);
-    showToast(`Loaded new map, ${order.length} pixels in total`)
+    showToast(`Loaded new map (${TEMPLATE_URL}), ${order.length} pixels in total`)
 }
 
 async function attemptPlace() {
@@ -236,8 +261,7 @@ function getCanvasFromUrl(url, canvas, x = 0, y = 0, clearCanvas = false) {
                         resolve(ctx);
                     };
                     img.onerror = () => {
-                        showToast('There was an error when retrieving the map. Trying again in 3 seconds...')
-                        setTimeout(() => loadImage(ctx), 3000);
+                        showToast('There was an error when retrieving the map. Please enter a correct url...', 20000)
                     };
                     img.src = imageUrl;
                 }
