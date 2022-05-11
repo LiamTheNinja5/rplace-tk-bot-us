@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         rplace.tk Bot
 // @namespace    https://github.com/stef1904berg/rplace-tk-bot
-// @version      31
+// @version      32
 // @description  A bot for rplace.tk!
 // @author       stef1904berg
 // @match        https://rplace.tk/*
@@ -22,11 +22,6 @@ var order = undefined;
 var currentOrderCanvas = document.createElement('canvas');
 var currentOrderCtx = currentOrderCanvas.getContext('2d');
 var currentPlaceCanvas = document.createElement('canvas');
-let userCooldown = 10000
-
-if (localStorage.vip !== undefined) {
-    userCooldown = 5000
-}
 
 // Global constants
 const DEFAULT_TOAST_DURATION_MS = 10000;
@@ -67,7 +62,7 @@ const COLOR_MAPPINGS = {
     '#FFFFFF': 31
 };
 
-function showToast(text, duration = DEFAULT_TOAST_DURATION_MS, onToastClick = function () {
+function showToast(text, duration = COOLDOWN, onToastClick = function () {
 }) {
     let toast = Toastify({
         text: text,
@@ -111,8 +106,6 @@ let getPendingWork = (work, rgbaOrder, rgbaCanvas) => {
 (function () {
     GM_addStyle(GM_getResourceText('TOASTIFY_CSS'));
 
-    connectSocket();
-
     window.onload = async function () {
         currentOrderCanvas.width = 2000;
         currentOrderCanvas.height = 2000;
@@ -130,6 +123,8 @@ let getPendingWork = (work, rgbaOrder, rgbaCanvas) => {
         downloadButton.id = 'download-canvas-button'
         downloadButton.download = 'canvas.png'
         infoModal.appendChild(downloadButton)
+
+        muted = true
 
         showToast('Waiting for canvas to load...')
         await waitForCanvasLoad();
@@ -151,44 +146,7 @@ async function loadStaticImage() {
     showToast(`Loaded new map, ${order.length} pixels in total`)
 }
 
-function connectSocket() {
-
-    showToast('Connecting with rplace.tk server...')
-
-    socket = new WebSocket((localStorage.server || 'wss://server.rplace.tk:443') + (localStorage.vip ? "/" + localStorage.vip : ""));
-    // Patch ws.send()
-    for (let functionName in WebSocket.prototype) {
-        let func = socket[functionName]
-
-        if (func == undefined) continue;
-        let functionString = socket[functionName].toString()
-
-        if (functionString.includes(
-            `function send() {`
-        )) {
-            WebSocket.prototype.send = socket[functionName]
-        }
-    }
-
-    socket.onopen = function () {
-        showToast('Connected with rplace.tk server!')
-    };
-
-    socket.onclose = function (e) {
-        showToast(`rplace.tk server closed the connection: ${e.reason}`)
-        console.error('Socker error: ', e.reason);
-        socket.close();
-        setTimeout(connectSocket, 5000)
-    };
-}
-
 async function attemptPlace() {
-    if (!socket.readyState) {
-        showToast('Waiting for socket to connect...', 5000)
-        setTimeout(attemptPlace, 5000)
-        return;
-    }
-
     if (order === undefined) {
         setTimeout(attemptPlace, 2000); // probeer opnieuw in 2sec.
         return;
@@ -204,8 +162,8 @@ async function attemptPlace() {
     const work = getPendingWork(order, rgbaOrder, rgbaCanvas);
 
     if (work.length === 0) {
-        showToast(`All pixels are in the right place! Trying again in ${userCooldown / 1000} sec...`)
-        setTimeout(attemptPlace, userCooldown); // probeer opnieuw in 30sec.
+        showToast(`All pixels are in the right place! Trying again in ${COOLDOWN / 1000} sec...`)
+        setTimeout(attemptPlace, COOLDOWN); // probeer opnieuw in 30sec.
         return;
     }
 
@@ -220,25 +178,34 @@ async function attemptPlace() {
     showToast(`Trying to place pixel on ${placeX}, ${placeY}... (${percentComplete}% complete, ${workRemaining} pixels to go)`)
 
     await place(placeX, placeY, COLOR_MAPPINGS[hex]);
-    showToast(`Placed pixel on ${placeX}, ${placeY}! Next pixel will be placed in ${userCooldown / 1000} seconds.`, DEFAULT_TOAST_DURATION_MS, _ => {
+    showToast(`Placed pixel on ${placeX}, ${placeY}! Next pixel will be placed in ${COOLDOWN / 1000} seconds.`, DEFAULT_TOAST_DURATION_MS, _ => {
         x = placeX;
         y = placeY;
         z = 0.25;
         pos()
     })
 
-    setTimeout(attemptPlace, userCooldown);
+    setTimeout(attemptPlace, COOLDOWN);
 }
 
 function place(placeX, placeY, color) {
     if (CD > Date.now()) return
-    CD = Date.now() + userCooldown
-    let placePacket = new DataView(new Uint8Array(6).buffer)
-    placePacket.setUint8(0, 4)
-    placePacket.setUint32(1, Math.floor(placeX) + Math.floor(placeY) * WIDTH)
-    placePacket.setUint8(5, color)
-    PEN = -1
-    socket.send(placePacket)
+    let lastActive = document.activeElement
+    let originX = x
+    let originY = y
+    PEN = color
+    x = placeX;
+    y = placeY
+    PEN = color;
+    pok.classList.add("enabled");
+    palette.style.transform = ""
+    document.activeElement.blur()
+    onCooldown = false
+    document.body.onkeypress({keyCode: 13, isTrusted: true})
+    palette.style.transform = "translateY(100%);"
+    x = originX
+    y = originY
+    lastActive.focus()
 }
 
 function getCanvasFromUrl(url, canvas, x = 0, y = 0, clearCanvas = false) {
