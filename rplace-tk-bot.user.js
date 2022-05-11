@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         rplace.tk Bot
 // @namespace    https://github.com/stef1904berg/rplace-tk-bot
-// @version      32
+// @version      33
 // @description  A bot for rplace.tk!
 // @author       stef1904berg
 // @match        https://rplace.tk/*
@@ -176,6 +176,13 @@ async function attemptPlace() {
     const hex = rgbaOrderToHex(i, rgbaOrder);
 
     showToast(`Trying to place pixel on ${placeX}, ${placeY}... (${percentComplete}% complete, ${workRemaining} pixels to go)`)
+
+    if (COLOR_MAPPINGS[hex] === undefined) {
+        console.log(`Invalid pixel on ${placeX},${placeY}: ${hex}`)
+        showToast(`Invalid pixel on ${placeX},${placeY}: ${hex}`, 5000)
+        setTimeout(attemptPlace, 500)
+        return
+    }
 
     await place(placeX, placeY, COLOR_MAPPINGS[hex]);
     showToast(`Placed pixel on ${placeX}, ${placeY}! Next pixel will be placed in ${COOLDOWN / 1000} seconds.`, DEFAULT_TOAST_DURATION_MS, _ => {
