@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         rplace.tk Bot
 // @namespace    https://github.com/stef1904berg/rplace-tk-bot
-// @version      33
+// @version      34
 // @description  A bot for rplace.tk!
 // @author       stef1904berg
 // @match        https://rplace.tk/*
@@ -131,6 +131,8 @@ let getPendingWork = (work, rgbaOrder, rgbaCanvas) => {
         showToast('Canvas loaded successfully!')
 
         await loadStaticImage();
+
+        COOLDOWN = (localStorage.vip ? (localStorage.vip[0] == '!' ? 0 : COOLDOWN/2) : COOLDOWN)
 
         attemptPlace();
 
