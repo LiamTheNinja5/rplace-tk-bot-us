@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         rplace.tk Bot
 // @namespace    https://github.com/stef1904berg/rplace-tk-bot
-// @version      36
+// @version      37
 // @description  A bot for rplace.tk!
 // @author       stef1904berg
 // @match        https://rplace.tk/*
@@ -230,7 +230,7 @@ async function attemptPlace() {
     }
 
     await place(placeX, placeY, COLOR_MAPPINGS[hex]);
-    showToast(`Placed pixel on ${placeX}, ${placeY}! Next pixel will be placed in ${userCooldown / 1000} seconds.`, DEFAULT_TOAST_DURATION_MS, _ => {
+    showToast(`Placed pixel on ${placeX}, ${placeY}! Next pixel will be placed in ${userCooldown / 1000} seconds.`, userCooldown, _ => {
         x = placeX;
         y = placeY;
         z = 0.25;
