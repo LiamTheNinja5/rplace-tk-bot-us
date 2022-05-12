@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         rplace.tk Bot
 // @namespace    https://github.com/stef1904berg/rplace-tk-bot
-// @version      35
+// @version      36
 // @description  A bot for rplace.tk!
 // @author       stef1904berg
 // @match        https://rplace.tk/*
@@ -17,7 +17,23 @@
 // @run-at       document-body
 // ==/UserScript==
 
-var socket;
+let scanDocumentShortcuts
+if (EventTarget.prototype.original_addEventListener == null) {
+    EventTarget.prototype.original_addEventListener = EventTarget.prototype.addEventListener;
+
+    function addEventListener_hook(typ, fn, opt) {
+        if (typ === 'blur') return
+        this.all_handlers = this.all_handlers || [];
+        this.all_handlers.push({typ,fn,opt});
+        this.original_addEventListener(typ, fn, opt);
+
+        if (typ === "keypress") scanDocumentShortcuts = fn;
+    }
+
+    EventTarget.prototype.addEventListener = addEventListener_hook;
+}
+
+
 var order = undefined;
 var currentOrderCanvas = document.createElement('canvas');
 var currentOrderCtx = currentOrderCanvas.getContext('2d');
@@ -157,7 +173,8 @@ let getPendingWork = (work, rgbaOrder, rgbaCanvas) => {
 
         await loadStaticImage();
 
-        COOLDOWN = (localStorage.vip ? (localStorage.vip[0] == '!' ? 0 : COOLDOWN / 2) : COOLDOWN)
+        userCooldown = (localStorage.vip ? (localStorage.vip[0] == '!' ? 0 : COOLDOWN / 2) : COOLDOWN)
+        console.log(`Cooldown is: ${userCooldown} seconds`)
 
         attemptPlace();
 
@@ -189,8 +206,8 @@ async function attemptPlace() {
     const work = getPendingWork(order, rgbaOrder, rgbaCanvas);
 
     if (work.length === 0) {
-        showToast(`All pixels are in the right place! Trying again in ${COOLDOWN / 1000} sec...`)
-        setTimeout(attemptPlace, COOLDOWN); // probeer opnieuw in 30sec.
+        showToast(`All pixels are in the right place! Trying again in ${userCooldown / 1000} sec...`)
+        setTimeout(attemptPlace, userCooldown); // probeer opnieuw in 30sec.
         return;
     }
 
@@ -212,14 +229,14 @@ async function attemptPlace() {
     }
 
     await place(placeX, placeY, COLOR_MAPPINGS[hex]);
-    showToast(`Placed pixel on ${placeX}, ${placeY}! Next pixel will be placed in ${COOLDOWN / 1000} seconds.`, DEFAULT_TOAST_DURATION_MS, _ => {
+    showToast(`Placed pixel on ${placeX}, ${placeY}! Next pixel will be placed in ${userCooldown / 1000} seconds.`, DEFAULT_TOAST_DURATION_MS, _ => {
         x = placeX;
         y = placeY;
         z = 0.25;
         pos()
     })
 
-    setTimeout(attemptPlace, COOLDOWN);
+    setTimeout(attemptPlace, userCooldown);
 }
 
 function place(placeX, placeY, color) {
@@ -235,7 +252,7 @@ function place(placeX, placeY, color) {
     palette.style.transform = ""
     document.activeElement.blur()
     onCooldown = false
-    document.body.onkeypress({keyCode: 13, isTrusted: true})
+    scanDocumentShortcuts({keyCode: 13, isTrusted: true})
     palette.style.transform = "translateY(100%);"
     x = originX
     y = originY
