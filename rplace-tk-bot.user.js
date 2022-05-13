@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         rplace.tk Bot
 // @namespace    https://github.com/stef1904berg/rplace-tk-bot
-// @version      37
+// @version      38
 // @description  A bot for rplace.tk!
 // @author       stef1904berg
 // @match        https://rplace.tk/*
@@ -24,10 +24,14 @@ if (EventTarget.prototype.original_addEventListener == null) {
     function addEventListener_hook(typ, fn, opt) {
         if (typ === 'blur') return
         this.all_handlers = this.all_handlers || [];
-        this.all_handlers.push({typ,fn,opt});
+        this.all_handlers.push({typ, fn, opt});
         this.original_addEventListener(typ, fn, opt);
 
-        if (typ === "keypress") scanDocumentShortcuts = fn;
+        if (typ === "click") {
+            if (fn.toString().startsWith("e => {if")) {
+                scanDocumentShortcuts = fn
+            }
+        }
     }
 
     EventTarget.prototype.addEventListener = addEventListener_hook;
@@ -148,7 +152,7 @@ let getPendingWork = (work, rgbaOrder, rgbaCanvas) => {
         changeTemplateInput.value = TEMPLATE_URL
         changeTemplateInput.type = 'text'
         changeTemplateInput.style.width = 'auto'
-        changeTemplateInput.addEventListener('keydown', async function(e) {
+        changeTemplateInput.addEventListener('keydown', async function (e) {
             if (e.key === "Enter") {
                 TEMPLATE_URL = changeTemplateInput.value
                 localStorage.setItem('template-url', TEMPLATE_URL)
@@ -253,6 +257,7 @@ function place(placeX, placeY, color) {
     palette.style.transform = ""
     document.activeElement.blur()
     onCooldown = false
+    window.dispatchEvent(new FocusEvent('focus'))
     scanDocumentShortcuts({keyCode: 13, isTrusted: true})
     palette.style.transform = "translateY(100%);"
     x = originX
