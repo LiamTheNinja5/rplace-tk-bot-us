@@ -1,16 +1,16 @@
 // ==UserScript==
 // @name         rplace.tk Bot
-// @namespace    https://github.com/stef1904berg/rplace-tk-bot
+// @namespace    https://github.com/LiamTheNinja5/rplace-tk-bot-us
 // @version      38
 // @description  A bot for rplace.tk!
-// @author       stef1904berg
+// @author       stef1904berg 
 // @match        https://rplace.tk/*
 // @connect      *
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=rplace.tk
 // @require	     https://cdn.jsdelivr.net/npm/toastify-js
 // @resource     TOASTIFY_CSS https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css
-// @updateURL    https://github.com/stef1904berg/rplace-tk-bot/raw/master/rplace-tk-bot.user.js
-// @downloadURL  https://github.com/stef1904berg/rplace-tk-bot/raw/master/rplace-tk-bot.user.js
+// @updateURL    https://github.com/LiamTheNinja5/rplace-tk-bot-us/blob/master/rplace-tk-bot.user.js
+// @downloadURL  https://github.com/LiamTheNinja5/rplace-tk-bot-us/blob/master/rplace-tk-bot.user.js
 // @grant        GM_getResourceText
 // @grant        GM_addStyle
 // @grant        GM.xmlHttpRequest
@@ -46,7 +46,7 @@ let userCooldown
 
 // Global constants
 const DEFAULT_TOAST_DURATION_MS = 10000;
-let TEMPLATE_URL = localStorage.getItem('template-url') !== null ? localStorage.getItem('template-url') : "https://stef1904berg.nl/misc/orders.png"
+let TEMPLATE_URL = localStorage.getItem('template-url') !== null ? localStorage.getItem('template-url') : "https://snellco.net/rplacetk/orders.png"
 
 
 const COLOR_MAPPINGS = {
