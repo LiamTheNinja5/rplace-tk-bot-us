@@ -11,7 +11,7 @@ You can use something different than Tampermonkey but it will probably not work!
 before you start, make sure your cooldown has run out! <br>
 
 1. Install the [Tampermonkey](https://www.tampermonkey.net/) browserextention.
-2. Click on this link: [https://github.com/stef1904berg/rplace-tk-bot/raw/master/rplace-tk-bot.user.js](https://github.com/stef1904berg/rplace-tk-bot/raw/master/rplace-tk-bot.user.js). If everything went well you'll see Tampermonkey ask you to add it. Click **Install**.
+2. Click on this link: [https://github.com/LiamTheNinja5/rplace-tk-bot-us/raw/master/rplace-tk-bot.user.js](https://github.com/LiamTheNinja5/rplace-tk-bot-us/raw/master/rplace-tk-bot.user.js). If everything went well you'll see Tampermonkey ask you to add it. Click **Install**.
 3. Reload your **r/place** tab. If everything went well, you'll see "Connecting with rplace.tk server" in the top right of your screen. The bot is now active, You'll be able to see what the bot is doing through these messages.
 
 ## Headless bot
